@@ -1,0 +1,19 @@
+# Datos y resultados: no van al repositorio (pesan mucho y se regeneran)
+Data/
+results/
+
+# Notas de trabajo personales
+notes/
+
+# Python y Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Por si algún .h5ad acaba fuera de Data/
+*.h5ad
+
+# Editor y sistema
+.vscode/
+Thumbs.db
+desktop.ini

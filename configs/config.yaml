@@ -1,0 +1,115 @@
+# Configuración del proyecto. Las rutas son relativas a la carpeta Code/.
+# Si cambias algo aquí, apúntalo en docs/decisiones.md.
+
+paths:
+  subset: Data/raw/subset_ADNC_GNN.h5ad
+  interim: Data/interim
+  processed: Data/processed
+  figures: results/figures
+  tables: results/tables
+
+seed: 42
+
+# Nombres de las columnas clave de obs
+columns:
+  donor: donor_id
+  label: ADNC
+  cell_type: cell_type_abbr     # los 6 tipos del diseño del subset
+  subclass: Subclass            # nivel más fino (11 subclases en el subset)
+  supertype: Supertype
+  assay: assay
+  specimen: Specimen ID         # muestra física procesada: candidata a lote
+  reference_flag: Neurotypical reference
+
+# Etiqueta
+labels:
+  all: [Reference, Low, Intermediate, High]
+  classification: [Low, Intermediate, High]   # orden ordinal
+  exclude: [Reference]   # 5 donantes jóvenes de otra cohorte: fuera de la clasificación principal
+
+# Clasificación de las columnas de obs.
+# Toda columna nueva que no esté aquí sale como "sin_clasificar" en el notebook.
+obs_groups:
+  identificador:
+    - donor_id
+    - observation_joinid
+  etiqueta:
+    - ADNC
+  # Componentes o derivados de la etiqueta: NUNCA como característica (fuga de información)
+  patologia_prohibida:
+    - Braak stage
+    - Thal phase
+    - CERAD score
+    - Continuous Pseudo-progression Score
+    - condition_celltype          # contiene el ADNC pegado al tipo celular
+    - Cognitive status            # consecuencia clínica de la patología
+    - disease                     # normal/dementia: derivado del estado cognitivo
+    - disease_ontology_term_id
+  # Pueden ir de la mano del ADNC y explicar diferencias de expresión
+  confusor:
+    - Age at death
+    - development_stage
+    - development_stage_ontology_term_id
+    - sex
+    - sex_ontology_term_id
+    - APOE4 status
+    - PMI
+    - Years of education
+    - self_reported_ethnicity
+    - self_reported_ethnicity_ontology_term_id
+    - Lewy body disease pathology   # copatologías: no forman parte del ADNC
+    - LATE-NC stage
+    - Microinfarct pathology
+  tecnica:
+    - assay
+    - assay_ontology_term_id
+    - Specimen ID
+    - Neurotypical reference      # marca la cohorte Reference
+    - is_primary_data
+    - suspension_type
+    - tissue
+    - tissue_ontology_term_id
+    - tissue_type
+    - organism
+    - organism_ontology_term_id
+  calidad_celula:                 # QC por célula (también técnicas)
+    - n_counts
+    - n_genes
+    - total_counts
+    - Fraction mitochrondrial UMIs
+    - pct_counts_mt
+  tipo_celular:
+    - Class
+    - Subclass
+    - Supertype
+    - cell_type
+    - cell_type_ontology_term_id
+    - cell_type_abbr
+
+# Columnas que DEBEN ser iguales en todas las células de un donante.
+# Si alguna varía, get_donor_table avisa.
+donor_level_expected:
+  - ADNC
+  - Braak stage
+  - Thal phase
+  - CERAD score
+  - Continuous Pseudo-progression Score
+  - Cognitive status
+  - Age at death
+  - sex
+  - APOE4 status
+  - PMI
+  - Years of education
+  - Lewy body disease pathology
+  - LATE-NC stage
+  - Microinfarct pathology
+  - Neurotypical reference
+
+# Descripción del subset proporcionada por el grupo (se comprueba en el notebook 00)
+expected:
+  n_cells: 24000
+  cells_per_class: 6000
+  n_cell_types: 6
+  n_donors: 80
+  n_genes_X: 6000
+  n_genes_raw: 36412

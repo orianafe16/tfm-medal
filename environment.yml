@@ -1,0 +1,30 @@
+# Entorno del TFM. Ya existe en tu ordenador como "tfm-medal"; este fichero sirve para recrearlo.
+#   Crear:      conda env create -f environment.yml
+#   Actualizar: conda env update -n tfm-medal -f environment.yml
+# Versiones comprobadas el 22 nov 2026: Python 3.11.17, scanpy 1.11.5, anndata 0.12.19,
+# scikit-learn 1.9.1, pandas 2.3.3, matplotlib 3.11.2, seaborn 0.13.2.
+# PyTorch y PyTorch Geometric se añadirán cuando lleguemos a las GNN.
+name: tfm-medal
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - scipy
+  - pandas>=2.2
+  - h5py
+  - anndata>=0.11
+  - scanpy>=1.10
+  - scikit-learn>=1.5
+  - matplotlib
+  - seaborn
+  - pyyaml
+  - psutil
+  - python-igraph
+  - leidenalg
+  - umap-learn
+  - pyarrow
+  - jupyterlab
+  - nbconvert
+  - ipykernel
