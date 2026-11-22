@@ -10,6 +10,22 @@ paths:
 
 seed: 42
 
+# Pseudobulk: suma de recuentos de raw por (donante, tipo celular)
+pseudobulk:
+  file: Data/processed/pseudobulk.h5ad
+  source: raw/X               # recuentos crudos con los 36.412 genes
+  chunk_cells: 4000           # células leídas de una vez (controla la RAM)
+  min_cells: 10               # umbral de células por par: se aplica al modelar, no al construir
+  # Gen expresado en un tipo celular: CPM >= min_cpm en al menos min_frac de sus pseudobulk
+  min_cpm: 1
+  min_frac: 0.5
+  n_hvg_pca: 2000
+
+genes_interes:
+  alzheimer: [APOE, APP, MAPT, TREM2, GSK3B, CLU, BIN1, PSEN1]
+  marcadores: {AST: [GFAP, AQP4], MGC: [P2RY12, CSF1R], OLG: [MOG, PLP1],
+               SST-GABA: [SST], VIP-GABA: [VIP], L2IT-GLU: [SLC17A7, CUX2]}
+
 # Nombres de las columnas clave de obs
 columns:
   donor: donor_id
