@@ -10,3 +10,6 @@ Una línea por decisión: fecha · qué · por qué.
 - 2026-11-22 · Construir el pseudobulk con los 36.412 genes de `raw` y filtrar después los genes expresados por tipo celular (CPM ≥ 1 en ≥ 50 % de los pseudobulk) · los 6.000 HVG de `X` excluyen genes de interés (APP, MAPT, TREM2, GSK3B) y se seleccionaron sobre otro conjunto de células; el filtro por tipo no usa la etiqueta.
 - 2026-11-22 · Guardar todos los pseudobulk con su `n_celulas` y aplicar el umbral mínimo de células al modelar · un umbral de 10 eliminaría 40 pseudobulk de High y solo 1 de Low: la decisión depende de la clase y debe evaluarse.
 - 2026-11-22 · Mantener a los donantes Reference en el pseudobulk, marcados, y excluirlos al modelar · permite usarlos como control aparte.
+- 2026-11-22 · Igualar la profundidad de los pseudobulk por submuestreo binomial dentro de cada tipo celular, con objetivo = cuantil 5 % de `total_counts` y mínimo de 10 células · sin igualar, la profundidad domina la PC1 (R² hasta 0,84) y está ligada a la clase; el cuantil 5 % elimina ese efecto perdiendo 67 de 446 pseudobulk (62 de High).
+- 2026-11-22 · Usar el modelo de control técnico (log n_celulas y log total_counts por tipo; balanced accuracy 0,66, kappa 0,71) como listón mínimo de cualquier modelo de expresión · las variables técnicas predicen el ADNC por el diseño del subset.
+

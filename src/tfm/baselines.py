@@ -104,12 +104,7 @@ def run_baselines(datos, y, splits, modelos, orden, verbose=True):
     for t, (cuentas, tec) in datos.items():
         presente = np.isin(donantes, cuentas.index)
         for nombre, (fabrica, conjunto) in modelos.items():
-            if conjunto == "tecnicas":
-                M, n_tech = tec, 0
-            elif conjunto == "expresion":
-                M, n_tech = cuentas, 0
-            else:
-                M, n_tech = pd.concat([cuentas, tec], axis=1), tec.shape[1]
+            M, n_tech = _feature_matrix(cuentas, tec, conjunto)
             M = M.reindex(donantes)                       # NaN en donantes sin este tipo
             P = np.full((n_rep, len(donantes), len(orden)), np.nan)
             for rep, tr, te in splits:
@@ -141,9 +136,82 @@ def fuse(probas, y, orden, modelo, tipos=None):
     return pd.DataFrame(filas), P
 
 
-def summarize_by(df, keys=("tipo", "modelo")):
+def _feature_matrix(cuentas, tec, conjunto):
+    if conjunto == "tecnicas":
+        return tec, 0
+    if conjunto == "expresion":
+        return cuentas, 0
+    return pd.concat([cuentas, tec], axis=1), tec.shape[1]
+
+
+def restrict(datos, y, clases):
+    """Se queda solo con los donantes de `clases` (p. ej. Low y High)."""
+    y2 = y[y.isin(clases)]
+    datos2 = {t: (c.loc[c.index.isin(y2.index)], tec.loc[tec.index.isin(y2.index)]) for t, (c, tec) in datos.items()}
+    return datos2, y2
+
+
+def auc_by_rep(P, y, positiva, orden):
+    """AUC ROC por repetición para un problema binario, con los donantes que tienen predicción."""
+    from sklearn.metrics import roc_auc_score
+
+    k = orden.index(positiva)
+    out = []
+    for rep in range(P.shape[0]):
+        ok = ~np.isnan(P[rep][:, k])
+        out.append(roc_auc_score((y.values[ok] == positiva).astype(int), P[rep][ok, k]))
+    return np.array(out)
+
+
+def run_regression(datos, objetivo, splits, modelos, verbose=True):
+    """Como run_baselines pero para un objetivo continuo (p. ej. el CPS).
+
+    Métricas por repetición: correlación de Spearman y R² entre predicción fuera de pliegue y valor real.
+    Devuelve (métricas, predicciones {(modelo, tipo): array repeticiones x donantes, NaN si falta el tipo}).
+    """
+    from scipy.stats import spearmanr
+    from sklearn.metrics import r2_score
+
+    donantes = objetivo.index.to_numpy()
+    n_rep = max(r for r, _, _ in splits) + 1
+    filas, preds = [], {}
+    t0 = time.time()
+    for t, (cuentas, tec) in datos.items():
+        presente = np.isin(donantes, cuentas.index)
+        for nombre, (fabrica, conjunto) in modelos.items():
+            M, n_tech = _feature_matrix(cuentas, tec, conjunto)
+            M = M.reindex(donantes)
+            Y = np.full((n_rep, len(donantes)), np.nan)
+            for rep, tr, te in splits:
+                tr, te = tr[presente[tr]], te[presente[te]]
+                modelo = fabrica(n_tech)
+                modelo.fit(M.values[tr], objetivo.values[tr])
+                Y[rep, te] = modelo.predict(M.values[te])
+            preds[(nombre, t)] = Y
+            for rep in range(n_rep):
+                filas.append({"repeticion": rep, "tipo": t, "modelo": nombre, "n_donantes": int(presente.sum()),
+                              "spearman": spearmanr(objetivo.values[presente], Y[rep, presente])[0],
+                              "r2": r2_score(objetivo.values[presente], Y[rep, presente])})
+            if verbose:
+                print(f"  {t:10s} {nombre:28s} {time.time() - t0:6.0f} s")
+    return pd.DataFrame(filas), preds
+
+
+def fuse_regression(preds, objetivo, modelo):
+    """Media de las predicciones de los tipos disponibles para cada donante."""
+    from scipy.stats import spearmanr
+    from sklearn.metrics import r2_score
+
+    Y = np.nanmean(np.stack([v for (m, _), v in preds.items() if m == modelo]), axis=0)
+    filas = [{"repeticion": rep, "tipo": "fusión", "modelo": modelo, "n_donantes": len(objetivo),
+              "spearman": spearmanr(objetivo.values, Y[rep])[0], "r2": r2_score(objetivo.values, Y[rep])}
+             for rep in range(Y.shape[0])]
+    return pd.DataFrame(filas), Y
+
+
+def summarize_by(df, keys=("tipo", "modelo"), metricas=("balanced_accuracy", "f1_macro", "kappa_cuadratico")):
     """Media y desviación de las métricas agrupando por `keys`."""
-    metricas = ["balanced_accuracy", "f1_macro", "kappa_cuadratico"]
+    metricas = list(metricas)
     g = df.groupby(list(keys))
     out = g[metricas].mean().add_suffix("_media").join(g[metricas].std().add_suffix("_sd"))
     out["n_donantes"] = g["n_donantes"].first()

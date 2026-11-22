@@ -15,7 +15,7 @@ src/tfm/           lógica reutilizable (config.py, data.py, pseudobulk.py, eval
 configs/           config.yaml: rutas, semilla, columnas clave, clasificación de obs
 results/figures/   figuras
 results/tables/    tablas que generan los notebooks
-docs/              datos.md (descripción del dataset), decisiones.md (registro de decisiones)
+docs/              datos.md (dataset), decisiones.md (registro de decisiones), resultados.md
 ```
 
 `Data/`, `results/` y `notes/` (notas de trabajo personales) no se suben a git.
