@@ -7,3 +7,6 @@ Una línea por decisión: fecha · qué · por qué.
 - 2026-11-22 · Hacer el pseudobulk sumando recuentos de `raw`, no desde `X` · `X` es log1p(CP10k) y solo tiene 6.000 genes; `raw` son los recuentos originales con los 36.412 genes (comprobado: X = log1p(raw / total × 10.000)).
 - 2026-11-22 · Emparejar los genes de `X` y `raw` por `feature_name` · `X` usa símbolos y `raw` IDs de ENSEMBL; por `feature_name` se encuentran los 6.000 genes y se distinguen los dos `LINC03021`.
 - 2026-11-22 · Particiones siempre por donante, estratificadas por clase · la etiqueta es del donante; mezclar células de un donante en train y test infla los resultados.
+- 2026-11-22 · Construir el pseudobulk con los 36.412 genes de `raw` y filtrar después los genes expresados por tipo celular (CPM ≥ 1 en ≥ 50 % de los pseudobulk) · los 6.000 HVG de `X` excluyen genes de interés (APP, MAPT, TREM2, GSK3B) y se seleccionaron sobre otro conjunto de células; el filtro por tipo no usa la etiqueta.
+- 2026-11-22 · Guardar todos los pseudobulk con su `n_celulas` y aplicar el umbral mínimo de células al modelar · un umbral de 10 eliminaría 40 pseudobulk de High y solo 1 de Low: la decisión depende de la clase y debe evaluarse.
+- 2026-11-22 · Mantener a los donantes Reference en el pseudobulk, marcados, y excluirlos al modelar · permite usarlos como control aparte.

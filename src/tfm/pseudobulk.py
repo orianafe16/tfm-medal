@@ -158,3 +158,104 @@ def gene_symbol_index(pb):
     """Diccionario símbolo -> posición del primer gen con ese símbolo."""
     s = pd.Series(np.arange(pb.n_vars), index=pb.var["simbolo"].astype(str).values)
     return s[~s.index.duplicated()].to_dict()
+
+
+# --------------------------------------------------------------------------- igualar profundidad
+def _eligible(pb, cfg, min_cells):
+    C = cfg["columns"]
+    return (pb.obs[C["label"]].isin(cfg["labels"]["classification"]) & (pb.obs["n_celulas"] >= min_cells)).to_numpy()
+
+
+def depth_targets(pb, cfg, quantile, min_cells):
+    """Profundidad objetivo de cada tipo celular: el cuantil `quantile` de total_counts entre los
+    pseudobulk que se usarán para clasificar (sin Reference y con al menos min_cells células)."""
+    ct = cfg["columns"]["cell_type"]
+    ok = _eligible(pb, cfg, min_cells)
+    return pb.obs[ok].groupby(ct, observed=True)["total_counts"].quantile(quantile)
+
+
+def thinning_losses(pb, cfg, quantiles, min_cells):
+    """Cuántos pseudobulk de cada clase se perderían con cada cuantil (por profundidad o por min_cells)."""
+    C = cfg["columns"]
+    lab, ct = C["label"], C["cell_type"]
+    orden = cfg["labels"]["classification"]
+    obs = pb.obs[pb.obs[lab].isin(orden)]
+    filas = []
+    for q in quantiles:
+        objetivo = depth_targets(pb, cfg, q, min_cells)
+        queda = (obs["n_celulas"] >= min_cells) & (obs["total_counts"] >= obs[ct].map(objetivo).astype(float))
+        fila = {"cuantil": q, "profundidad_mediana_objetivo": float(objetivo.median())}
+        for c in orden:
+            m = obs[lab] == c
+            fila[f"pierde_{c}"] = int((m & ~queda).sum())
+            fila[f"queda_{c}"] = int((m & queda).sum())
+        filas.append(fila)
+    return pd.DataFrame(filas).set_index("cuantil")
+
+
+def downsample_to_depth(pb, cfg, quantile=0.05, min_cells=10, seed=0):
+    """Iguala la profundidad dentro de cada tipo celular por submuestreo binomial.
+
+    Para cada pseudobulk con total T >= objetivo D de su tipo, cada recuento x pasa a Binomial(x, D/T):
+    es como si se hubieran secuenciado solo D lecturas. El total queda en ~D y las proporciones entre
+    genes se conservan en esperanza. Se descartan Reference, los pseudobulk con < min_cells células
+    y los que no llegan a D. Devuelve (pb_igualado, informe por tipo y clase).
+    """
+    import anndata as ad
+
+    C = cfg["columns"]
+    lab, ct = C["label"], C["cell_type"]
+    objetivo = depth_targets(pb, cfg, quantile, min_cells)
+    tot = pb.obs["total_counts"].to_numpy()
+    D = pb.obs[ct].map(objetivo).astype(float).to_numpy()
+    queda = _eligible(pb, cfg, min_cells) & (tot >= D)
+
+    sub = pb[queda].copy()
+    X = sub.X.tocsr().astype(np.float64) if sp.issparse(sub.X) else sp.csr_matrix(sub.X, dtype=np.float64)
+    p = np.repeat(D[queda] / tot[queda], np.diff(X.indptr))
+    rng = np.random.default_rng(seed)
+    X.data = rng.binomial(X.data.astype(np.int64), np.clip(p, 0, 1)).astype(np.float64)
+    X.eliminate_zeros()
+
+    sub = ad.AnnData(X=X.astype(np.float32), obs=sub.obs.copy(), var=sub.var.copy(), uns=dict(sub.uns))
+    sub.obs["total_counts_original"] = sub.obs["total_counts"]
+    sub.obs["total_counts"] = np.asarray(X.sum(1)).ravel()
+    sub.obs["n_genes_detectados"] = np.diff(X.indptr)
+    sub.uns["igualado"] = {"cuantil": quantile, "min_cells": min_cells, "semilla": seed,
+                           "objetivo_por_tipo": {k: float(v) for k, v in objetivo.items()}}
+
+    orden = cfg["labels"]["classification"]
+    obs = pb.obs
+    informe = pd.DataFrame({
+        "objetivo": objetivo,
+        **{f"queda_{c}": obs[queda & (obs[lab] == c).to_numpy()].groupby(ct, observed=True).size() for c in orden},
+        **{f"pierde_{c}": obs[~queda & (obs[lab] == c).to_numpy()].groupby(ct, observed=True).size() for c in orden},
+    }).fillna(0)
+    for c in informe.columns[1:]:
+        informe[c] = informe[c].astype(int)
+    return sub, informe
+
+
+def pca_r2_by_type(pb, cfg, min_cpm=1.0, min_frac=0.5, n_genes=2000, n_comps=5, seed=0):
+    """PCA dentro de cada tipo celular (sin Reference) y R² de cada PC con ADNC, log10(n_celulas) y
+    log10(total_counts). Devuelve (tabla larga de R², {tipo: (pcs, var_explicada, obs)})."""
+    C = cfg["columns"]
+    lab, ct = C["label"], C["cell_type"]
+    orden = cfg["labels"]["classification"]
+    L = log_cpm(pb)
+    expr = expressed_genes(pb, ct, min_cpm=min_cpm, min_frac=min_frac)
+    filas, salida = [], {}
+    for t in sorted(pb.obs[ct].unique()):
+        m = ((pb.obs[ct] == t) & pb.obs[lab].isin(orden)).to_numpy()
+        if m.sum() < 5:
+            continue
+        sub = pb.obs[m]
+        p, v, _ = pca(L[np.ix_(m, expr[t].to_numpy())], n_genes=n_genes, n_comps=n_comps, seed=seed)
+        salida[t] = (p, v, sub)
+        variables = {"ADNC": sub[lab].astype(str),
+                     "log n_celulas": np.log10(sub["n_celulas"].clip(lower=1)),
+                     "log total_counts": np.log10(sub["total_counts"].clip(lower=1))}
+        for nombre, valores in variables.items():
+            for i, r2 in enumerate(r2_by(p, valores)):
+                filas.append({"tipo": t, "variable": nombre, "PC": f"PC{i + 1}", "R2": r2, "var_explicada": float(v[i])})
+    return pd.DataFrame(filas), salida

@@ -125,3 +125,52 @@ No solo son otra cohorte: **no tienen datos comparables**. Quedan fuera de la cl
 - Es un subset de desarrollo **balanceado artificialmente** (1.000 células por tipo celular y clase). Las proporciones de tipos celulares y de clases no reflejan las del SEA-AD completo, y los resultados obtenidos aquí deberán validarse en la distribución real.
 - Los 6.000 HVG se seleccionaron sobre un conjunto de células mayor que el subset (`n_cells` llega a 27.344) e incluyen 953 genes sin símbolo y 13 mitocondriales.
 - No consta cómo se muestrearon las células de cada donante dentro de cada combinación de clase y tipo celular.
+
+## 10. Pseudobulk (`notebooks/01_pseudobulk.ipynb`)
+
+Suma de los recuentos de `raw` por (donante, tipo celular): **472 pseudobulk × 36.412 genes**, guardados en
+`Data/processed/pseudobulk.h5ad`. De los 480 pares posibles faltan 8 (donantes sin células de ese tipo).
+
+| Clase | Pseudobulk | Células por pseudobulk (mediana) | Con < 10 células | Recuentos (mediana) |
+|---|---|---|---|---|
+| Reference | 26 | 216,5 | 2 | 1,70 M |
+| Low | 72 | 74 | 1 | 0,93 M |
+| Intermediate | 126 | 42 | 2 | 0,57 M |
+| High | 248 | 21 | **40** | 0,22 M |
+
+**Genes expresados** (CPM ≥ 1 en al menos la mitad de los pseudobulk del tipo): entre 13.230 (OLG) y 16.632
+(L2IT-GLU); 19.633 en al menos un tipo y 11.060 en los seis. De los expresados en cada tipo, solo ~3.600–4.300
+están entre los 6.000 HVG de `X`.
+
+**Controles que salen bien:**
+- La PCA con todos los pseudobulk separa los seis tipos celulares (PC1 32 %, PC2 19 %): glía frente a neuronas.
+- Cada marcador destaca en su tipo: GFAP y AQP4 en AST, P2RY12 y CSF1R en MGC, MOG y PLP1 en OLG, SST en
+  SST-GABA, VIP en VIP-GABA, SLC17A7 y CUX2 en L2IT-GLU. La anotación es coherente.
+- TREM2 solo se expresa en microglía, y APOE sobre todo en astrocitos y microglía, como se describe en la literatura.
+
+### Efecto técnico ligado a la clase
+
+Como el subset tiene las mismas células por clase repartidas entre más o menos donantes, los pseudobulk de High
+resumen menos células y menos recuentos. En **los seis tipos**, la clase (Low < Intermediate < High) se correlaciona
+negativamente con el número de células (ρ de Spearman entre −0,50 y −0,73) y con los recuentos totales
+(ρ entre −0,50 y −0,71); todas con p < 0,001.
+
+En la PCA dentro de cada tipo celular (sin Reference), **la PC1 está dominada por la profundidad**:
+
+| Tipo | Varianza de PC1 | R² con log(n_celulas) | R² con ADNC |
+|---|---|---|---|
+| AST | 17 % | 0,18 (PC2: 0,44) | 0,19 |
+| L2IT-GLU | 40 % | 0,70 | 0,15 |
+| MGC | 14 % | 0,68 | 0,23 |
+| OLG | 20 % | 0,81 | 0,13 |
+| SST-GABA | 29 % | 0,76 | 0,19 |
+| VIP-GABA | 26 % | 0,67 | 0,20 |
+
+La parte de PC1 que explica el ADNC puede deberse, al menos en parte, a su correlación con el número de células.
+Por el mismo motivo, las diferencias de expresión entre clases que se ven en algunos genes (p. ej. TREM2, BIN1 y
+CLU bajan de Low a High en microglía) **no se pueden interpretar todavía**: con menos recuentos, el log-CPM medio
+de los genes poco o moderadamente expresados tiende a bajar.
+
+**Consecuencia:** sin corregir la profundidad, un modelo podría predecir el ADNC a partir del número de células
+de cada pseudobulk en lugar de la biología. Es una propiedad del diseño del subset (balanceado por células), no
+de los donantes.

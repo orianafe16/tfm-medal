@@ -20,6 +20,14 @@ pseudobulk:
   min_cpm: 1
   min_frac: 0.5
   n_hvg_pca: 2000
+  # Igualar profundidad dentro de cada tipo celular (submuestreo binomial)
+  file_igualado: Data/processed/pseudobulk_igualado.h5ad
+  depth_quantile: 0.05        # objetivo = cuantil 5 % de total_counts del tipo (sin Reference, >= min_cells)
+  depth_quantiles_explorar: [0.0, 0.05, 0.10, 0.25]
+
+evaluation:
+  n_splits: 5                 # con 12 donantes Low, cada pliegue de test tiene 2-3
+  n_repeats: 20
 
 genes_interes:
   alzheimer: [APOE, APP, MAPT, TREM2, GSK3B, CLU, BIN1, PSEN1]
