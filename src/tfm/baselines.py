@@ -209,6 +209,69 @@ def fuse_regression(preds, objetivo, modelo):
     return pd.DataFrame(filas), Y
 
 
+def run_residual_regression(datos, objetivo, tec_global, splits, make_expr, make_tec, verbose=True):
+    """¿Aporta la expresión información sobre el objetivo más allá de las variables técnicas?
+
+    En cada pliegue, solo con los donantes de entrenamiento:
+        1. make_tec() predice el objetivo a partir de tec_global (técnicas del donante).
+        2. Residuo = objetivo - predicción técnica.
+        3. make_expr(0) predice ese residuo a partir de la expresión de cada tipo celular.
+    En test se compara el residuo predicho con el residuo real (calculado con el modelo técnico del pliegue).
+
+    Devuelve (métricas por repetición y tipo, {tipo: residuos predichos}, residuo real, predicción técnica).
+    La fusión (media de tipos) se calcula en `fuse_residual`.
+    """
+    from scipy.stats import spearmanr
+
+    donantes = objetivo.index.to_numpy()
+    T = tec_global.reindex(donantes).values
+    n_rep = max(r for r, _, _ in splits) + 1
+    real = np.full((n_rep, len(donantes)), np.nan)
+    pred_tec = np.full((n_rep, len(donantes)), np.nan)
+    residuos_pliegue = []                          # el modelo técnico es común a todos los tipos
+    for rep, tr, te in splits:
+        m = make_tec().fit(T[tr], objetivo.values[tr])
+        res = objetivo.values - m.predict(T)       # residuo de todos los donantes con el modelo de este pliegue
+        pred_tec[rep, te] = objetivo.values[te] - res[te]
+        real[rep, te] = res[te]
+        residuos_pliegue.append(res)
+
+    filas, preds = [], {}
+    t0 = time.time()
+    for t, (cuentas, _) in datos.items():
+        presente = np.isin(donantes, cuentas.index)
+        M = cuentas.reindex(donantes).values
+        R = np.full((n_rep, len(donantes)), np.nan)
+        for (rep, tr, te), res in zip(splits, residuos_pliegue):
+            tr, te = tr[presente[tr]], te[presente[te]]
+            m = make_expr(0).fit(M[tr], res[tr])
+            R[rep, te] = m.predict(M[te])
+        preds[t] = R
+        for rep in range(n_rep):
+            ok = presente
+            filas.append({"repeticion": rep, "tipo": t, "n_donantes": int(ok.sum()),
+                          "spearman_residuo": spearmanr(real[rep, ok], R[rep, ok])[0],
+                          "spearman_tecnico": spearmanr(objetivo.values[ok], pred_tec[rep, ok])[0],
+                          "spearman_tecnico_mas_expresion": spearmanr(objetivo.values[ok],
+                                                                      pred_tec[rep, ok] + R[rep, ok])[0]})
+        if verbose:
+            print(f"  {t:10s} {time.time() - t0:6.0f} s")
+    return pd.DataFrame(filas), preds, real, pred_tec
+
+
+def fuse_residual(preds, objetivo, real, pred_tec):
+    """Fusión de los residuos predichos por cada tipo (media de los disponibles para cada donante)."""
+    from scipy.stats import spearmanr
+
+    R = np.nanmean(np.stack(list(preds.values())), axis=0)
+    filas = [{"repeticion": rep, "tipo": "fusión", "n_donantes": len(objetivo),
+              "spearman_residuo": spearmanr(real[rep], R[rep])[0],
+              "spearman_tecnico": spearmanr(objetivo.values, pred_tec[rep])[0],
+              "spearman_tecnico_mas_expresion": spearmanr(objetivo.values, pred_tec[rep] + R[rep])[0]}
+             for rep in range(R.shape[0])]
+    return pd.DataFrame(filas), R
+
+
 def summarize_by(df, keys=("tipo", "modelo"), metricas=("balanced_accuracy", "f1_macro", "kappa_cuadratico")):
     """Media y desviación de las métricas agrupando por `keys`."""
     metricas = list(metricas)

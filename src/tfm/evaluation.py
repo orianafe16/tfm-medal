@@ -61,6 +61,25 @@ def summarize(resultados):
     return pd.DataFrame(filas).set_index("modelo")
 
 
+def partial_spearman(x, y, Z):
+    """Correlación de Spearman parcial entre x e y controlando por las columnas de Z.
+
+    Se pasa todo a rangos, se quita a x y a y la parte que explica Z (regresión lineal sobre los rangos) y se
+    correlacionan los residuos. Devuelve (rho, p) con n - 2 - k grados de libertad.
+    """
+    from scipy import stats
+
+    x, y = stats.rankdata(np.asarray(x, float)), stats.rankdata(np.asarray(y, float))
+    Z = np.asarray(Z, float).reshape(len(x), -1)
+    Zr = np.column_stack([np.ones(len(x))] + [stats.rankdata(Z[:, j]) for j in range(Z.shape[1])])
+    rx = x - Zr @ np.linalg.lstsq(Zr, x, rcond=None)[0]
+    ry = y - Zr @ np.linalg.lstsq(Zr, y, rcond=None)[0]
+    r = float(np.corrcoef(rx, ry)[0, 1])
+    gl = len(x) - 2 - Z.shape[1]
+    t = r * np.sqrt(gl / max(1e-12, 1 - r ** 2))
+    return r, float(2 * stats.t.sf(abs(t), gl))
+
+
 def technical_features(pb, cfg, columnas=("n_celulas", "total_counts")):
     """Una fila por donante (sin Reference) con log10 de cada variable técnica en cada tipo celular.
     Los pares que faltan se rellenan con 0 (log10(1)). Devuelve (X, y)."""
