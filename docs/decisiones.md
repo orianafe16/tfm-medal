@@ -12,4 +12,5 @@ Una línea por decisión: fecha · qué · por qué.
 - 2026-11-22 · Mantener a los donantes Reference en el pseudobulk, marcados, y excluirlos al modelar · permite usarlos como control aparte.
 - 2026-11-22 · Igualar la profundidad de los pseudobulk por submuestreo binomial dentro de cada tipo celular, con objetivo = cuantil 5 % de `total_counts` y mínimo de 10 células · sin igualar, la profundidad domina la PC1 (R² hasta 0,84) y está ligada a la clase; el cuantil 5 % elimina ese efecto perdiendo 67 de 446 pseudobulk (62 de High).
 - 2026-11-22 · Usar el modelo de control técnico (log n_celulas y log total_counts por tipo; balanced accuracy 0,66, kappa 0,71) como listón mínimo de cualquier modelo de expresión · las variables técnicas predicen el ADNC por el diseño del subset.
+- 2026-11-22 · Calibrar el "azar" de cada métrica con permutaciones de la etiqueta entre donantes (repitiendo todo el proceso de CV) · con ~75 donantes la CV sin señal no da el valor teórico (AUC ≈ 0,43, Spearman ≈ −0,14 en datos sintéticos).
 

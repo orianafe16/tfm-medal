@@ -174,3 +174,63 @@ de los genes poco o moderadamente expresados tiende a bajar.
 **Consecuencia:** sin corregir la profundidad, un modelo podría predecir el ADNC a partir del número de células
 de cada pseudobulk en lugar de la biología. Es una propiedad del diseño del subset (balanceado por células), no
 de los donantes.
+
+## 11. Control técnico e igualación de la profundidad (`notebooks/02_profundidad_y_control.ipynb`)
+
+### Modelo de control técnico
+
+Regresión logística por donante (75, sin Reference) cuyas únicas características son log(n_celulas) y
+log(total_counts) de cada tipo celular, sin expresión génica. Validación cruzada por donante: 5 pliegues
+estratificados × 20 repeticiones.
+
+| Modelo | Balanced accuracy | F1 macro | Kappa cuadrático |
+|---|---|---|---|
+| Azar (siempre High) | 0,333 | 0,239 | 0,000 |
+| Solo n_celulas | 0,660 ± 0,027 | 0,645 | 0,710 |
+| Solo total_counts | 0,652 ± 0,028 | 0,634 | 0,691 |
+| Ambas | 0,644 ± 0,025 | 0,630 | 0,693 |
+
+Las variables técnicas predicen el ADNC muy por encima del azar. **Es el listón mínimo para cualquier modelo de
+expresión**: un modelo que no lo supere claramente puede estar aprendiendo la profundidad.
+
+### Igualación por submuestreo binomial
+
+Dentro de cada tipo celular, cada pseudobulk se submuestrea a una profundidad común D (cuantil 5 % de
+`total_counts` entre los pseudobulk con ≥ 10 células, sin Reference). D va de 70.024 recuentos (OLG) a 317.113
+(L2IT-GLU). Resultado en `Data/processed/pseudobulk_igualado.h5ad`.
+
+| Cuantil | Objetivo (mediana) | Pierde Low | Pierde Intermediate | Pierde High |
+|---|---|---|---|---|
+| 0 | 61.187 | 1 | 2 | 40 |
+| **0,05 (elegido)** | 125.135 | 1 | 4 | 62 |
+| 0,10 | 164.899 | 1 | 9 | 75 |
+| 0,25 | 259.951 | 2 | 21 | 122 |
+
+Quedan **379 pseudobulk** (Low 71, Intermediate 122, High 186) de 74 donantes: un donante High se queda sin
+ningún pseudobulk. Las pérdidas se concentran en High (25 % de sus pseudobulk) porque son los que resumen menos
+células.
+
+### Efecto en la PCA dentro de cada tipo
+
+R² de la PC1 antes → después de igualar:
+
+| Tipo | Varianza de PC1 | log(total_counts) | log(n_celulas) | ADNC |
+|---|---|---|---|---|
+| AST | 17 % → 7 % | 0,23 → 0,03 | 0,18 → 0,01 | 0,19 → 0,13 |
+| L2IT-GLU | 40 % → 14 % | 0,80 → 0,01 | 0,70 → 0,05 | 0,15 → 0,06 |
+| MGC | 14 % → 5 % | 0,65 → 0,00 | 0,68 → 0,01 | 0,23 → 0,07 |
+| OLG | 20 % → 5 % | 0,77 → 0,00 | 0,81 → 0,16 | 0,13 → 0,04 |
+| SST-GABA | 29 % → 6 % | 0,84 → 0,05 | 0,76 → 0,29 | 0,19 → 0,07 |
+| VIP-GABA | 26 % → 7 % | 0,75 → 0,07 | 0,67 → 0,05 | 0,20 → 0,05 |
+
+- El efecto de la **profundidad desaparece** (R² ≤ 0,07) y la PC1 deja de ser un eje dominante.
+- Queda un efecto residual del **número de células** en SST-GABA (0,29) y OLG (0,16): igualar recuentos no iguala
+  cuántas células del donante se muestrearon, y un pseudobulk de pocas células refleja peor la composición de
+  subtipos del donante.
+- La asociación de la PC1 con el ADNC **también baja**: buena parte de lo que parecía señal de enfermedad en el
+  notebook 01 era profundidad. La señal de ADNC no está en las primeras componentes; habrá que buscarla con
+  modelos supervisados.
+
+Limitación: los pseudobulk descartados no son aleatorios (son los de menos células, casi todos High), lo que
+puede sesgar la muestra hacia los donantes High con más células por tipo.
+
