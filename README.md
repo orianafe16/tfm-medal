@@ -10,8 +10,8 @@ Grupo MEDAL (CTB-UPM), tutora Lucía Prieto.
 Data/raw/          subset_ADNC_GNN.h5ad (no se modifica nunca)
 Data/interim/      ficheros intermedios
 Data/processed/    datos listos para modelar (p. ej. pseudobulk)
-notebooks/         00_carga_y_ficha, 01_pseudobulk: llaman a src/tfm y enseñan resultados
-src/tfm/           lógica reutilizable (config.py, data.py, pseudobulk.py)
+notebooks/         00_carga_y_ficha, 01_pseudobulk, 02_profundidad_y_control, 03_baselines: llaman a src/tfm y enseñan resultados
+src/tfm/           lógica reutilizable (config.py, data.py, pseudobulk.py, evaluation.py, baselines.py)
 configs/           config.yaml: rutas, semilla, columnas clave, clasificación de obs
 results/figures/   figuras
 results/tables/    tablas que generan los notebooks

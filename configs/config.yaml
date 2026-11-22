@@ -28,6 +28,13 @@ pseudobulk:
 evaluation:
   n_splits: 5                 # con 12 donantes Low, cada pliegue de test tiene 2-3
   n_repeats: 20
+  n_repeats_baselines: 10     # los baselines ajustan 6 tipos x 3 modelos por pliegue: ~5 min
+
+baselines:
+  n_genes: 2000               # genes más variables por tipo, elegidos dentro de cada pliegue
+  logistica_Cs: [0.001, 0.01, 0.1, 1.0]   # regularización L2, elegida con CV interna de 3 pliegues
+  rf_arboles: 500
+  rf_min_hojas: 2
 
 genes_interes:
   alzheimer: [APOE, APP, MAPT, TREM2, GSK3B, CLU, BIN1, PSEN1]
