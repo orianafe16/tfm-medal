@@ -108,10 +108,67 @@ que la trampa también lo prediga en parte.
 2. **Astrocitos y microglía destacan.** En AST la expresión predice el CPS (0,56) mientras que sus variables
    técnicas casi no lo hacen (0,10); en MGC, 0,51 frente a 0,30. En los demás tipos, expresión y trampa quedan
    cerca. Es coherente con la activación inflamatoria de astrocitos y microglía que Gabitto et al. (2024)
-   describen en la fase temprana de la progresión, pero hay que confirmarlo.
+   describen en la fase temprana de la progresión, pero hay que confirmarlo. **Matizado en §3:** al controlar por
+   todas las variables técnicas del donante, la señal aparece en los seis tipos y AST no es el que más destaca.
 3. **Por qué la clasificación de §1 no lo veía:** con 3 clases desequilibradas (12 Low), el modelo acaba
    prediciendo la clase mayoritaria; el CPS aprovecha la variación **dentro** de cada clase (p. ej. Low va de
    0,15 a 0,64) y los 74 donantes como valores continuos.
 4. **Pendiente:** comprobar que la señal de expresión es independiente del número de células (expresión +
    técnicas frente a técnicas solas, o correlación parcial controlando log n_celulas). En AST la trampa no
    predice el CPS, así que ahí el riesgo es menor.
+
+## 3. Independencia de la señal respecto a las variables técnicas (`notebooks/05_independencia.ipynb`, 22 nov 2026)
+
+Variables técnicas del donante: log10 de n_celulas y de recuentos originales en cada uno de los 6 tipos (12
+variables). Mismas particiones que en §2 (5 pliegues × 10 repeticiones).
+
+### Correlación parcial
+
+Spearman entre el CPS predicho por la expresión (media de 10 repeticiones) y el CPS real, sin control y
+controlando por las 12 variables técnicas. Contraste de una cola (solo una correlación positiva es evidencia; la
+CV sin señal sesga hacia valores negativos, así que el contraste es conservador).
+
+| Tipo | n | Spearman | Spearman parcial | p (una cola) |
+|---|---|---|---|---|
+| AST | 64 | 0,565 | 0,441 | 0,001 |
+| L2IT-GLU | 63 | 0,473 | 0,317 | 0,012 |
+| MGC | 63 | 0,524 | 0,333 | 0,008 |
+| OLG | 60 | 0,510 | 0,473 | < 0,001 |
+| SST-GABA | 63 | 0,467 | 0,312 | 0,013 |
+| VIP-GABA | 66 | 0,484 | 0,228 | 0,049 |
+| **Fusión** | 74 | 0,582 | **0,366** | **0,002** |
+
+### Modelo de residuos
+
+En cada pliegue: ridge sobre las 12 variables técnicas predice el CPS; la expresión de cada tipo predice el
+residuo; en test se compara con el residuo real. 20 permutaciones del CPS repitiendo todo el proceso.
+
+| Tipo | Técnico solo | Técnico + expresión | Residuo: observado | Residuo: permutación (media / p95) |
+|---|---|---|---|---|
+| AST | 0,477 | 0,593 | 0,295 | −0,116 / 0,069 |
+| L2IT-GLU | 0,375 | 0,493 | 0,370 | −0,074 / 0,128 |
+| MGC | 0,426 | 0,569 | 0,392 | −0,066 / 0,132 |
+| OLG | 0,438 | 0,593 | 0,458 | −0,088 / 0,094 |
+| SST-GABA | 0,379 | 0,547 | 0,450 | −0,048 / 0,243 |
+| VIP-GABA | 0,415 | 0,554 | 0,379 | −0,045 / 0,151 |
+| **Fusión** | 0,505 | **0,621** | **0,356** | −0,049 / 0,186 |
+
+En los 7 casos el residuo observado supera a las 20 permutaciones (p ≤ 0,048, el mínimo posible).
+Desviaciones entre repeticiones: 0,03–0,06.
+
+### Interpretación
+
+1. **La expresión contiene información sobre la progresión (CPS) que las variables técnicas no explican**, en los
+   seis tipos celulares. Añadir la expresión al modelo técnico sube la correlación con el CPS entre 0,12 y 0,17 en
+   todos los tipos (fusión: 0,51 → 0,62).
+2. Al controlar por todas las variables técnicas, **los tipos con más señal propia son OLG y SST-GABA** (residuo
+   0,46 y 0,45) y AST el que menos (0,30). La lectura de §2 (AST y MGC destacan) dependía de comparar con las
+   variables técnicas de cada tipo por separado.
+3. **Límites:**
+   - La corrección técnica es lineal sobre el log de células y recuentos; una dependencia no lineal podría quedar.
+   - Un pseudobulk con pocas células también refleja peor la mezcla de subtipos (supertipos) del donante; parte de
+     la señal podría ser composición dentro del tipo, que es biología pero no expresión "por célula".
+   - **No se ha controlado por confusores biológicos** (edad, sexo, APOE4), que se relacionan con la progresión.
+     Es la siguiente comprobación necesaria antes de interpretar genes.
+   - Con 20 permutaciones el p-valor mínimo es 0,048; para publicar convendría usar más.
+

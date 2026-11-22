@@ -80,6 +80,33 @@ def partial_spearman(x, y, Z):
     return r, float(2 * stats.t.sf(abs(t), gl))
 
 
+def donor_covariates(obs, cfg, mt_col="pct_counts_mt"):
+    """Covariables biológicas y de calidad por donante (sin Reference), para controlarlas:
+
+    apoe4 (1 = portador), sexo_mujer (1 = mujer), edad (exacta; los "80 o más" valen 80) y edad_80_o_mas
+    (1 = dato censurado), y la mediana del % mitocondrial de cada tipo celular (mt_<tipo>).
+    """
+    from .data import get_donor_table
+    from .eda import exact_age
+
+    C = cfg["columns"]
+    don, lab, ct = C["donor"], C["label"], C["cell_type"]
+    d = get_donor_table(obs, don)
+    d = d[d[lab].isin(cfg["labels"]["classification"])]
+    edad, cens = exact_age(d["development_stage"])
+    cov = pd.DataFrame({
+        "apoe4": (d["APOE4 status"].astype(str) == "Y").astype(float),
+        "sexo_mujer": (d["sex"].astype(str) == "female").astype(float),
+        "edad": edad.clip(upper=80).astype(float),
+        "edad_80_o_mas": cens.astype(float),
+    }, index=d.index.astype(str))
+    mt = obs.groupby([obs[don].astype(str), ct], observed=True)[mt_col].median().unstack(ct)
+    mt.columns = [f"mt_{c}" for c in mt.columns]
+    mt = mt.reindex(cov.index)
+    cov = cov.join(mt.fillna(mt.median()))
+    return cov
+
+
 def technical_features(pb, cfg, columnas=("n_celulas", "total_counts")):
     """Una fila por donante (sin Reference) con log10 de cada variable técnica en cada tipo celular.
     Los pares que faltan se rellenan con 0 (log10(1)). Devuelve (X, y)."""
